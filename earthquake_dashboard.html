@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Earthquake Risk Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:      #0a0c10;
+    --surface: #111318;
+    --card:    #161a22;
+    --border:  #1e2330;
+    --accent:  #e84545;
+    --amber:   #f5a623;
+    --green:   #3ddc84;
+    --blue:    #4b9eff;
+    --text:    #e8eaf0;
+    --muted:   #6b7280;
+    --dim:     #9ca3af;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 15px; line-height: 1.6;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.35;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* HERO */
+  .hero { position: relative; padding: 80px 60px 60px; border-bottom: 1px solid var(--border); overflow: hidden; }
+  .hero::after {
+    content: ''; position: absolute; top: -120px; right: -80px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(232,69,69,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-eyebrow {
+    font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 18px;
+    opacity: 0; animation: fadeUp 0.6s ease forwards 0.1s;
+  }
+  .hero h1 {
+    font-family: 'Bebas Neue', sans-serif; font-size: clamp(52px,8vw,96px);
+    letter-spacing: 0.03em; line-height: 0.92; color: var(--text); margin-bottom: 24px;
+    opacity: 0; animation: fadeUp 0.6s ease forwards 0.2s;
+  }
+  .hero h1 span { color: var(--accent); }
+  .hero-desc {
+    max-width: 540px; color: var(--dim); font-size: 16px; font-weight: 300;
+    opacity: 0; animation: fadeUp 0.6s ease forwards 0.35s;
+  }
+  .hero-meta {
+    display: flex; gap: 32px; margin-top: 36px; flex-wrap: wrap;
+    opacity: 0; animation: fadeUp 0.6s ease forwards 0.5s;
+  }
+  .hero-meta-item { display: flex; flex-direction: column; gap: 3px; }
+  .hero-meta-item .label { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); }
+  .hero-meta-item .val   { font-family:'DM Mono',monospace; font-size:14px; color:var(--text); font-weight:500; }
+
+  /* STAT STRIP */
+  .stat-strip { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); border-bottom: 1px solid var(--border); }
+  .stat { padding: 36px 40px; border-right: 1px solid var(--border); opacity:0; animation: fadeUp 0.5s ease forwards; }
+  .stat:last-child { border-right: none; }
+  .stat:nth-child(1){animation-delay:.55s} .stat:nth-child(2){animation-delay:.65s}
+  .stat:nth-child(3){animation-delay:.75s} .stat:nth-child(4){animation-delay:.85s}
+  .stat-num { font-family:'Bebas Neue',sans-serif; font-size:52px; line-height:1; margin-bottom:6px; }
+  .stat-num.red{color:var(--accent)} .stat-num.amber{color:var(--amber)} .stat-num.green{color:var(--green)} .stat-num.blue{color:var(--blue)}
+  .stat-label { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; }
+  .stat-sub   { font-size:13px; color:var(--dim); margin-top:4px; }
+
+  /* LAYOUT */
+  .main { padding: 60px; max-width: 1400px; margin: 0 auto; }
+
+  /* SECTIONS */
+  .section-header { display:flex; align-items:baseline; gap:16px; margin-bottom:32px; margin-top:64px; }
+  .section-header:first-child { margin-top:0; }
+  .section-tag {
+    font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.16em; text-transform:uppercase;
+    color:var(--accent); background:rgba(232,69,69,0.08); border:1px solid rgba(232,69,69,0.2);
+    padding:4px 10px; border-radius:3px; white-space:nowrap;
+  }
+  .section-tag.amber{color:var(--amber);background:rgba(245,166,35,0.08);border-color:rgba(245,166,35,0.2)}
+  .section-tag.green{color:var(--green);background:rgba(61,220,132,0.08);border-color:rgba(61,220,132,0.2)}
+  .section-tag.blue {color:var(--blue); background:rgba(75,158,255,0.08); border-color:rgba(75,158,255,0.2)}
+  .section-title { font-family:'Bebas Neue',sans-serif; font-size:36px; letter-spacing:0.04em; color:var(--text); }
+  .section-line  { flex:1; height:1px; background:var(--border); margin-left:8px; }
+
+  /* CARDS */
+  .card { background:var(--card); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .card-header { padding:18px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .card-title { font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--dim); }
+  .card-body { padding:24px; }
+  .card img { width:100%; display:block; filter:brightness(0.97) contrast(1.03); }
+
+  /* GRIDS */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .col-span-2 { grid-column:span 2; }
+
+  /* PIPELINE */
+  .pipeline { display:flex; flex-wrap:wrap; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .pipeline-step { flex:1; min-width:130px; padding:24px 20px; border-right:1px solid var(--border); position:relative; }
+  .pipeline-step:last-child { border-right:none; }
+  .pipeline-step::after { content:'→'; position:absolute; right:-12px; top:50%; transform:translateY(-50%); color:var(--border); font-size:18px; z-index:1; }
+  .pipeline-step:last-child::after { display:none; }
+  .step-num  { font-family:'Bebas Neue',sans-serif; font-size:32px; color:var(--border); line-height:1; }
+  .step-name { font-size:13px; font-weight:600; color:var(--text); margin:8px 0 4px; }
+  .step-desc { font-size:11px; color:var(--muted); line-height:1.5; }
+
+  /* METRIC TABLE */
+  .metric-table { width:100%; border-collapse:collapse; }
+  .metric-table th { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); padding:10px 16px; text-align:left; border-bottom:1px solid var(--border); }
+  .metric-table td { padding:14px 16px; font-size:14px; border-bottom:1px solid rgba(30,35,48,0.6); font-family:'DM Mono',monospace; }
+  .metric-table tr:last-child td { border-bottom:none; }
+  .model-name { color:var(--text); font-weight:500; font-family:'DM Sans',sans-serif !important; }
+  .good { color:var(--green) } .mid { color:var(--amber) }
+  .badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; font-family:'DM Sans',sans-serif; }
+  .badge.winner { background:rgba(61,220,132,0.12); color:var(--green); border:1px solid rgba(61,220,132,0.25); }
+
+  /* RISK PILLS */
+  .risk-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; font-family:'DM Sans',sans-serif; }
+  .risk-pill::before { content:'●'; font-size:7px; }
+  .risk-pill.high   { background:rgba(232,69,69,0.12);  color:var(--accent); border:1px solid rgba(232,69,69,0.25); }
+  .risk-pill.medium { background:rgba(245,166,35,0.12); color:var(--amber);  border:1px solid rgba(245,166,35,0.25); }
+  .risk-pill.low    { background:rgba(61,220,132,0.12); color:var(--green);  border:1px solid rgba(61,220,132,0.25); }
+
+  /* NOTES */
+  .note { background:rgba(75,158,255,0.05); border:1px solid rgba(75,158,255,0.15); border-left:3px solid var(--blue); border-radius:0 6px 6px 0; padding:14px 18px; font-size:13px; color:var(--dim); margin-top:16px; line-height:1.7; }
+  .note strong { color:var(--blue); font-weight:600; }
+  .note.warn { background:rgba(245,166,35,0.05); border-color:rgba(245,166,35,0.15); border-left-color:var(--amber); }
+  .note.warn strong { color:var(--amber); }
+  .note.good { background:rgba(61,220,132,0.05); border-color:rgba(61,220,132,0.15); border-left-color:var(--green); }
+  .note.good strong { color:var(--green); }
+
+  /* MAP */
+  .map-frame { width:100%; height:560px; border:none; display:block; background:var(--surface); }
+
+  /* COUNTRY TABLE */
+  .table-controls { display:flex; align-items:center; gap:12px; padding:16px 24px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  .search-box { flex:1; min-width:180px; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:8px 14px; color:var(--text); font-family:'DM Mono',monospace; font-size:12px; outline:none; }
+  .search-box::placeholder { color:var(--muted); }
+  .search-box:focus { border-color:var(--accent); }
+  .filter-btn { padding:7px 14px; border-radius:6px; font-size:11px; font-weight:600; border:1px solid var(--border); background:transparent; cursor:pointer; font-family:'DM Sans',sans-serif; color:var(--dim); transition:all 0.15s; }
+  .filter-btn.all.active   { color:var(--text);   background:rgba(255,255,255,0.05); border-color:var(--dim); }
+  .filter-btn.high.active  { color:var(--accent); background:rgba(232,69,69,0.08);   border-color:rgba(232,69,69,0.3); }
+  .filter-btn.med.active   { color:var(--amber);  background:rgba(245,166,35,0.08);  border-color:rgba(245,166,35,0.3); }
+  .filter-btn.low.active   { color:var(--green);  background:rgba(61,220,132,0.08);  border-color:rgba(61,220,132,0.3); }
+  .row-count { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); margin-left:auto; }
+  .country-table-wrap { max-height:480px; overflow-y:auto; }
+  .country-table { width:100%; border-collapse:collapse; }
+  .country-table th { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); padding:12px 16px; text-align:left; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--card); z-index:2; cursor:pointer; user-select:none; }
+  .country-table th:hover { color:var(--text); }
+  .country-table th.sorted { color:var(--accent); }
+  .country-table td { padding:11px 16px; font-size:13px; border-bottom:1px solid rgba(30,35,48,0.5); font-family:'DM Mono',monospace; }
+  .country-table tr:last-child td { border-bottom:none; }
+  .country-table tr:hover td { background:rgba(255,255,255,0.02); }
+  .country-name { color:var(--text); font-family:'DM Sans',sans-serif !important; font-size:13px; }
+
+  /* CONCLUSIONS */
+  .conclusion-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .conclusion-item { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:24px; }
+  .c-label { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:10px; }
+  .c-label.red{color:var(--accent)} .c-label.amber{color:var(--amber)} .c-label.green{color:var(--green)} .c-label.blue{color:var(--blue)}
+  .conclusion-item p { font-size:14px; color:var(--dim); line-height:1.7; }
+
+  /* FOOTER */
+  .footer { margin-top:80px; padding:40px 60px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; color:var(--muted); font-size:12px; font-family:'DM Mono',monospace; letter-spacing:0.06em; }
+  .footer-title { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--border); letter-spacing:0.1em; }
+
+  ::-webkit-scrollbar { width:5px; height:5px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+  @media (max-width:900px) {
+    .hero, .main, .footer { padding:40px 24px; }
+    .grid-2, .conclusion-grid { grid-template-columns:1fr; }
+    .col-span-2 { grid-column:span 1; }
+    .stat-strip { grid-template-columns:1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-eyebrow">Data Mining Project · Earthquake Analysis</div>
+  <h1>EARTHQUAKE<br><span>RISK</span><br>DASHBOARD</h1>
+  <p class="hero-desc">Magnitude prediction and risk classification using Random Forest, Decision Tree,
+    and Linear Regression — trained on global seismic records across 122 countries and regions.</p>
+  <div class="hero-meta">
+    <div class="hero-meta-item"><span class="label">Dataset</span><span class="val">earthquake.csv</span></div>
+    <div class="hero-meta-item"><span class="label">Task</span><span class="val">Regression + Classification</span></div>
+    <div class="hero-meta-item"><span class="label">Models</span><span class="val">LR · RF · DT</span></div>
+    <div class="hero-meta-item"><span class="label">Validation</span><span class="val">5-Fold Cross Validation</span></div>
+    <div class="hero-meta-item"><span class="label">Countries / Regions</span><span class="val">122</span></div>
+  </div>
+</header>
+
+<!-- STAT STRIP -->
+<div class="stat-strip">
+  <div class="stat"><div class="stat-num red">4</div><div class="stat-label">ML Models Trained</div><div class="stat-sub">LR, RF Regressor, DT, RF Classifier</div></div>
+  <div class="stat"><div class="stat-num amber">9</div><div class="stat-label">Input Features</div><div class="stat-sub">Lat, Lon, Depth + engineered features</div></div>
+  <div class="stat"><div class="stat-num green">3</div><div class="stat-label">Risk Classes</div><div class="stat-sub">Low · Medium · High</div></div>
+  <div class="stat"><div class="stat-num blue">122</div><div class="stat-label">Countries / Regions</div><div class="stat-sub">Across global seismic zones</div></div>
+</div>
+
+<main class="main">
+
+  <!-- PIPELINE -->
+  <div class="section-header">
+    <span class="section-tag">Overview</span>
+    <span class="section-title">Project Pipeline</span>
+    <div class="section-line"></div>
+  </div>
+  <div class="pipeline">
+    <div class="pipeline-step"><div class="step-num">01</div><div class="step-name">Load & Inspect</div><div class="step-desc">Upload CSV, inspect columns, dtypes, shape</div></div>
+    <div class="pipeline-step"><div class="step-num">02</div><div class="step-name">Column Fix</div><div class="step-desc">Normalize column names via rename_map</div></div>
+    <div class="pipeline-step"><div class="step-num">03</div><div class="step-name">Preprocessing</div><div class="step-desc">Drop nulls, filter outliers, engineer features</div></div>
+    <div class="pipeline-step"><div class="step-num">04</div><div class="step-name">Risk Labels</div><div class="step-desc">Assign Low / Medium / High from magnitude</div></div>
+    <div class="pipeline-step"><div class="step-num">05</div><div class="step-name">Regression</div><div class="step-desc">Predict magnitude with LR & RF</div></div>
+    <div class="pipeline-step"><div class="step-num">06</div><div class="step-name">Classification</div><div class="step-desc">Predict risk level with DT & RF</div></div>
+    <div class="pipeline-step"><div class="step-num">07</div><div class="step-name">Country Map</div><div class="step-desc">Aggregate risk per country, Folium map</div></div>
+  </div>
+
+  <!-- EDA -->
+  <div class="section-header">
+    <span class="section-tag">EDA</span>
+    <span class="section-title">Exploratory Analysis</span>
+    <div class="section-line"></div>
+  </div>
+  <div class="grid-2">
+    <div class="card"><div class="card-header"><span class="card-title">Feature Correlation Heatmap</span></div><img src="heatmap.png" alt="Heatmap"/></div>
+    <div class="card"><div class="card-header"><span class="card-title">3D Spatial Distribution of Magnitude</span></div><img src="3d_scatter.png" alt="3D Scatter"/></div>
+    <div class="card col-span-2"><div class="card-header"><span class="card-title">Risk Level Distribution</span></div><img src="risk_distribution.png" alt="Risk Distribution"/></div>
+  </div>
+
+  <!-- REGRESSION -->
+  <div class="section-header">
+    <span class="section-tag amber">Regression</span>
+    <span class="section-title">Magnitude Prediction</span>
+    <div class="section-line"></div>
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-header"><span class="card-title">Model Performance Metrics</span></div>
+    <div class="card-body" style="padding:0;">
+      <table class="metric-table">
+        <thead><tr><th>Model</th><th>MAE ↓</th><th>RMSE ↓</th><th>R² ↑</th><th>CV R² (5-fold)</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="model-name">Linear Regression</td>
+            <td class="mid">0.3761</td>
+            <td class="mid">0.5001</td>
+            <td class="mid">0.6632</td>
+            <td class="mid">—</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td class="model-name">Random Forest Regressor</td>
+            <td class="good">0.3247</td>
+            <td class="good">0.4343</td>
+            <td class="good">0.7460</td>
+            <td class="good">0.7186 ± 0.0370</td>
+            <td><span class="badge winner">Best</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="note good">
+    <strong>Strong R² achieved:</strong> Random Forest Regressor achieved R² of 0.75, explaining 75% of variance in magnitude. Linear Regression achieved 0.66. Both confirm that geographic and depth features carry strong predictive signal for seismic activity. Random Forest outperforms Linear Regression across all metrics — lower MAE, lower RMSE, and higher R².
+  </div>
+  <div class="grid-2" style="margin-top:20px;">
+    <div class="card"><div class="card-header"><span class="card-title">Actual vs Predicted — Both Models</span></div><img src="regression_comparison.png" alt="Regression Comparison"/></div>
+    <div class="card"><div class="card-header"><span class="card-title">RMSE Comparison Across Dataset Sizes</span></div><img src="rmse_comparison.png" alt="RMSE Comparison"/></div>
+    <div class="card col-span-2"><div class="card-header"><span class="card-title">Feature Importance — Random Forest Regressor</span></div><img src="feature_importance_reg.png" alt="Feature Importance Reg"/></div>
+  </div>
+
+  <!-- CLASSIFICATION -->
+  <div class="section-header">
+    <span class="section-tag green">Classification</span>
+    <span class="section-title">Risk Level Prediction</span>
+    <div class="section-line"></div>
+  </div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+    <span class="risk-pill high">High Risk — mag &gt; 6.0</span>
+    <span class="risk-pill medium">Medium Risk — 4.5 ≤ mag ≤ 6.0</span>
+    <span class="risk-pill low">Low Risk — mag &lt; 4.5</span>
+  </div>
+  <div class="note" style="margin-bottom:20px;">
+    <strong>No data leakage:</strong> The magnitude column (<code>mag</code>) is deliberately excluded from all classifier features. The model learns purely from geography and depth — including engineered cyclic encodings (sin/cos of lat/lon). This makes the classification task genuinely meaningful.
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-header"><span class="card-title">Classifier Performance</span></div>
+    <div class="card-body" style="padding:0;">
+      <table class="metric-table">
+        <thead><tr><th>Model</th><th>Accuracy ↑</th><th>CV Accuracy (5-fold)</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="model-name">Decision Tree (max_depth=5)</td>
+            <td class="mid">0.7557</td>
+            <td class="mid">—</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td class="model-name">Random Forest Classifier</td>
+            <td class="good">0.7607</td>
+            <td class="good">0.7645 ± 0.0257</td>
+            <td><span class="badge winner">Best</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card"><div class="card-header"><span class="card-title">Confusion Matrices — DT & RF</span></div><img src="confusion_matrices.png" alt="Confusion Matrices"/></div>
+    <div class="card"><div class="card-header"><span class="card-title">Feature Importance — RF Classifier</span></div><img src="feature_importance_clf.png" alt="Feature Importance Clf"/></div>
+    <div class="card col-span-2"><div class="card-header"><span class="card-title">Decision Tree Structure (depth 3)</span></div><img src="decision_tree.png" alt="Decision Tree"/></div>
+  </div>
+
+  <!-- MAP -->
+  <div class="section-header">
+    <span class="section-tag blue">Geospatial</span>
+    <span class="section-title">Interactive Risk Map</span>
+    <div class="section-line"></div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Global Earthquake Risk Map — Folium</span>
+      <div style="display:flex;gap:10px;">
+        <span class="risk-pill high">High</span>
+        <span class="risk-pill medium">Medium</span>
+        <span class="risk-pill low">Low</span>
+      </div>
+    </div>
+    <iframe src="earthquake_map.html" class="map-frame"></iframe>
+  </div>
+
+  <!-- COUNTRY TABLE -->
+  <div class="section-header">
+    <span class="section-tag">Country Data</span>
+    <span class="section-title">Risk by Country / Region</span>
+    <div class="section-line"></div>
+  </div>
+  <div class="card">
+    <div class="table-controls">
+      <input type="text" class="search-box" placeholder="Search country or region..." id="searchBox" oninput="renderTable()"/>
+      <button class="filter-btn all active" onclick="setFilter('all',this)">All</button>
+      <button class="filter-btn high" onclick="setFilter('High Risk',this)">High Risk</button>
+      <button class="filter-btn med"  onclick="setFilter('Medium Risk',this)">Medium Risk</button>
+      <button class="filter-btn low"  onclick="setFilter('Low Risk',this)">Low Risk</button>
+      <span class="row-count" id="rowCount"></span>
+    </div>
+    <div class="country-table-wrap">
+      <table class="country-table" id="countryTable">
+        <thead>
+          <tr>
+            <th onclick="sortTable(0)">Country / Region</th>
+            <th onclick="sortTable(1)">Total Events</th>
+            <th onclick="sortTable(2)">Avg Mag</th>
+            <th onclick="sortTable(3)">Max Mag</th>
+            <th onclick="sortTable(4)">Low ↓</th>
+            <th onclick="sortTable(5)">Medium ↓</th>
+            <th onclick="sortTable(6)">High ↓</th>
+            <th>Dominant Risk</th>
+          </tr>
+        </thead>
+        <tbody id="countryBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CONCLUSIONS -->
+  <div class="section-header">
+    <span class="section-tag">Summary</span>
+    <span class="section-title">Key Findings</span>
+    <div class="section-line"></div>
+  </div>
+  <div class="conclusion-grid">
+    <div class="conclusion-item">
+      <div class="c-label amber">Regression Finding</div>
+      <p>Random Forest achieved strong R² of 0.75 and Linear Regression 0.66, confirming geographic and depth features are meaningful predictors of earthquake magnitude. Random Forest outperforms Linear Regression across all metrics — MAE 0.32 vs 0.38, RMSE 0.43 vs 0.50 — validated with 5-fold CV of 0.72 ± 0.04.</p>
+    </div>
+    <div class="conclusion-item">
+      <div class="c-label green">Classification Finding</div>
+      <p>Random Forest Classifier achieves 76% accuracy and Decision Tree 75.6% on risk level classification using only depth and coordinates — with no data leakage. CV accuracy of 76.45% ± 2.57% confirms the model is stable and generalises well to unseen data.</p>
+    </div>
+    <div class="conclusion-item">
+      <div class="c-label blue">Feature Importance</div>
+      <p>lon_sin dominates both models as the most important feature, followed by latitude, lat_sin and longitude. This confirms that tectonic plate boundaries — which follow longitude-dependent curved patterns — are the primary geographic drivers of seismic risk.</p>
+    </div>
+    <div class="conclusion-item">
+      <div class="c-label red">Model Design Choices</div>
+      <p>Key design decisions: log-transforming depth (right-skewed), cyclic sin/cos encoding for lat/lon (avoids discontinuity at ±180°), stratified train-test split (80/20) for classification, and explicit exclusion of mag from classifier inputs to prevent data leakage.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <div class="footer-title">EARTHQUAKE RISK DASHBOARD</div>
+  <div>Data Mining Project · SAI KRISHA K · CU23BCA0048A · DAT305 · 2025-2026</div>
+</footer>
+
+<script>
+const countryData = [
+  ["Afghanistan",8,4.62,5.8,5,3,0,"Low Risk"],
+  ["Alabama",1,2.53,2.53,1,0,0,"Low Risk"],
+  ["Alaska",479,3.04,5.4,464,15,0,"Low Risk"],
+  ["Anguilla",17,3.82,5.0,15,2,0,"Low Risk"],
+  ["Argentina",14,4.44,4.8,4,10,0,"Medium Risk"],
+  ["Arizona",1,2.7,2.7,1,0,0,"Low Risk"],
+  ["Australia",4,4.68,5.5,3,1,0,"Low Risk"],
+  ["Azerbaijan",3,4.87,5.6,1,2,0,"Medium Risk"],
+  ["Balleny Islands region",2,5.0,5.7,1,1,0,"Medium Risk"],
+  ["Banda Sea",1,4.3,4.3,0,1,0,"Medium Risk"],
+  ["Bolivia",2,4.4,4.5,1,1,0,"Medium Risk"],
+  ["Burma (Myanmar)",5,4.42,4.7,4,1,0,"Low Risk"],
+  ["Burundi",1,4.3,4.3,0,1,0,"Medium Risk"],
+  ["California",3,2.77,3.0,3,0,0,"Low Risk"],
+  ["Canada",6,3.45,4.3,6,0,0,"Low Risk"],
+  ["Carlsberg Ridge",2,5.2,5.5,0,2,0,"Medium Risk"],
+  ["Chile",32,4.27,5.0,24,8,0,"Low Risk"],
+  ["China",25,4.42,5.1,17,8,0,"Low Risk"],
+  ["Colombia",6,4.45,4.8,1,5,0,"Medium Risk"],
+  ["Colorado",3,3.07,3.5,3,0,0,"Low Risk"],
+  ["Costa Rica",3,4.77,5.7,1,2,0,"Medium Risk"],
+  ["Cuba",1,4.1,4.1,1,0,0,"Low Risk"],
+  ["Dominican Republic",13,3.56,4.06,13,0,0,"Low Risk"],
+  ["Ecuador",3,4.9,5.2,0,3,0,"Medium Risk"],
+  ["El Salvador",6,4.32,4.8,5,1,0,"Low Risk"],
+  ["Ethiopia",1,4.3,4.3,1,0,0,"Low Risk"],
+  ["Federated States of Micronesia",2,4.85,5.0,0,2,0,"Medium Risk"],
+  ["Fiji",8,4.25,4.5,8,0,0,"Low Risk"],
+  ["Fiji region",7,4.6,5.7,2,5,0,"Medium Risk"],
+  ["Greece",29,4.45,5.8,24,5,0,"Low Risk"],
+  ["Guam",8,4.5,4.9,2,6,0,"Medium Risk"],
+  ["Guatemala",5,4.28,4.5,2,3,0,"Medium Risk"],
+  ["Gulf of America",1,3.9,3.9,1,0,0,"Low Risk"],
+  ["Hawaii",19,2.88,3.97,19,0,0,"Low Risk"],
+  ["Iceland",2,4.3,4.4,2,0,0,"Low Risk"],
+  ["Idaho",2,2.75,2.8,2,0,0,"Low Risk"],
+  ["India",10,4.48,5.0,5,5,0,"Medium Risk"],
+  ["India region",3,4.27,4.5,1,2,0,"Medium Risk"],
+  ["Indonesia",309,4.57,7.4,146,162,1,"Medium Risk"],
+  ["Iran",6,4.43,4.7,4,2,0,"Low Risk"],
+  ["Italy",1,4.0,4.0,1,0,0,"Low Risk"],
+  ["Japan",82,4.64,7.4,33,47,2,"Medium Risk"],
+  ["Japan region",12,4.54,5.1,5,7,0,"Medium Risk"],
+  ["Kazakhstan",2,4.55,4.7,2,0,0,"Low Risk"],
+  ["Kermadec Islands region",12,4.74,5.2,3,9,0,"Medium Risk"],
+  ["Kuril Islands",4,4.72,5.2,2,2,0,"Medium Risk"],
+  ["Kyrgyzstan",2,4.25,4.3,2,0,0,"Low Risk"],
+  ["Lebanon",1,4.3,4.3,1,0,0,"Low Risk"],
+  ["Louisiana",2,2.55,2.6,2,0,0,"Low Risk"],
+  ["Mariana Islands region",2,4.4,4.6,1,1,0,"Medium Risk"],
+  ["Mauritius",1,4.2,4.2,1,0,0,"Low Risk"],
+  ["Mauritius - Reunion region",2,4.5,4.6,1,1,0,"Medium Risk"],
+  ["Mexico",6,4.5,5.0,2,4,0,"Medium Risk"],
+  ["Micronesia",1,4.4,4.4,1,0,0,"Low Risk"],
+  ["Mid-Indian Ridge",6,4.78,5.5,0,6,0,"Medium Risk"],
+  ["Missouri",1,4.0,4.0,1,0,0,"Low Risk"],
+  ["Molucca Sea",1,4.1,4.1,1,0,0,"Low Risk"],
+  ["Mongolia",3,4.97,5.5,0,3,0,"Medium Risk"],
+  ["Montana",6,2.71,2.9,6,0,0,"Low Risk"],
+  ["Nevada",106,2.96,5.68,103,3,0,"Low Risk"],
+  ["New Caledonia",2,4.75,5.1,0,2,0,"Medium Risk"],
+  ["New Mexico",30,2.96,4.4,30,0,0,"Low Risk"],
+  ["New Zealand",9,4.77,5.7,4,5,0,"Medium Risk"],
+  ["Nicaragua",1,5.4,5.4,0,1,0,"Medium Risk"],
+  ["Northern Mariana Islands",9,4.58,5.5,3,6,0,"Medium Risk"],
+  ["Norway",1,3.9,3.9,1,0,0,"Low Risk"],
+  ["Oklahoma",2,2.77,3.05,2,0,0,"Low Risk"],
+  ["Oregon",10,2.88,3.3,10,0,0,"Low Risk"],
+  ["Pacific-Antarctic Ridge",4,5.08,5.9,0,4,0,"Medium Risk"],
+  ["Pakistan",4,4.3,4.5,3,1,0,"Low Risk"],
+  ["Palau",1,4.7,4.7,0,1,0,"Medium Risk"],
+  ["Panama",3,4.27,4.4,3,0,0,"Low Risk"],
+  ["Papua New Guinea",30,4.57,5.4,14,16,0,"Medium Risk"],
+  ["Peru",15,4.63,6.0,6,9,0,"Medium Risk"],
+  ["Philippines",18,4.54,6.0,8,10,0,"Medium Risk"],
+  ["Portugal",1,4.9,4.9,0,1,0,"Medium Risk"],
+  ["Puerto Rico",84,2.98,4.16,84,0,0,"Low Risk"],
+  ["Reykjanes Ridge",5,4.5,4.8,0,5,0,"Medium Risk"],
+  ["Russia",45,4.52,5.4,23,22,0,"Low Risk"],
+  ["Solomon Islands",18,4.65,5.8,6,12,0,"Medium Risk"],
+  ["South Sandwich Islands region",7,4.73,5.0,1,6,0,"Medium Risk"],
+  ["South Shetland Islands",1,5.2,5.2,0,1,0,"Medium Risk"],
+  ["Southwest Indian Ridge",2,4.5,4.6,1,1,0,"Medium Risk"],
+  ["Svalbard and Jan Mayen",1,4.3,4.3,1,0,0,"Low Risk"],
+  ["Switzerland",1,4.2,4.2,1,0,0,"Low Risk"],
+  ["Taiwan",4,4.53,5.2,3,1,0,"Low Risk"],
+  ["Tajikistan",4,4.75,5.5,2,2,0,"Medium Risk"],
+  ["Tanzania",1,4.3,4.3,1,0,0,"Low Risk"],
+  ["Tennessee",1,2.45,2.45,1,0,0,"Low Risk"],
+  ["Texas",30,2.86,3.7,30,0,0,"Low Risk"],
+  ["Timor Leste",14,4.55,5.5,7,7,0,"Medium Risk"],
+  ["Tonga",27,4.63,6.1,7,19,1,"Medium Risk"],
+  ["Turkey",7,4.44,5.1,3,4,0,"Medium Risk"],
+  ["Turkmenistan",2,4.4,4.5,2,0,0,"Low Risk"],
+  ["U.S. Virgin Islands",131,3.34,4.9,130,1,0,"Low Risk"],
+  ["United Kingdom",1,3.5,3.5,1,0,0,"Low Risk"],
+  ["Utah",9,2.94,3.63,9,0,0,"Low Risk"],
+  ["Vanuatu",25,4.72,7.3,7,17,1,"Medium Risk"],
+  ["Wallis and Futuna",1,4.0,4.0,1,0,0,"Low Risk"],
+  ["Washington",3,2.65,2.75,3,0,0,"Low Risk"],
+  ["West Chile Rise",2,4.65,4.7,0,2,0,"Medium Risk"],
+  ["West Virginia",1,2.48,2.48,1,0,0,"Low Risk"],
+  ["Wyoming",4,2.87,3.4,4,0,0,"Low Risk"],
+  ["Xizang-Qinghai border region",1,4.1,4.1,1,0,0,"Low Risk"],
+  ["Yemen",1,4.5,4.5,0,1,0,"Medium Risk"],
+  ["north of Ascension Island",2,5.15,5.2,0,2,0,"Medium Risk"],
+  ["north of Svalbard",1,4.3,4.3,1,0,0,"Low Risk"],
+  ["northern Mid-Atlantic Ridge",5,4.92,5.4,1,4,0,"Medium Risk"],
+  ["off the coast of Central America",2,4.4,4.6,1,1,0,"Medium Risk"],
+  ["off the coast of Ecuador",1,4.6,4.6,0,1,0,"Medium Risk"],
+  ["off the coast of Oregon",4,3.85,4.2,4,0,0,"Low Risk"],
+  ["off the coast of Washington",20,3.2,4.2,20,0,0,"Low Risk"],
+  ["south of Africa",2,5.1,5.7,0,2,0,"Medium Risk"],
+  ["south of Alaska",2,2.9,3.0,2,0,0,"Low Risk"],
+  ["south of the Aleutian Islands",1,3.1,3.1,1,0,0,"Low Risk"],
+  ["south of the Fiji Islands",14,4.43,4.9,10,4,0,"Low Risk"],
+  ["south of the Kermadec Islands",35,4.92,6.0,3,32,0,"Medium Risk"],
+  ["southeast Indian Ridge",2,4.9,5.1,0,2,0,"Medium Risk"],
+  ["southeast of the Loyalty Islands",1,4.7,4.7,0,1,0,"Medium Risk"],
+  ["southern East Pacific Rise",1,4.3,4.3,1,0,0,"Low Risk"],
+  ["southern Mid-Atlantic Ridge",2,4.9,5.2,0,2,0,"Medium Risk"],
+  ["western Indian-Antarctic Ridge",9,4.71,5.4,3,6,0,"Medium Risk"],
+];
+
+let currentFilter = 'all', sortCol = 1, sortDir = -1;
+
+function riskClass(r) { return r==='High Risk'?'high':r==='Medium Risk'?'medium':'low'; }
+
+function renderTable() {
+  const search = document.getElementById('searchBox').value.toLowerCase();
+  const ths = document.querySelectorAll('#countryTable th');
+  ths.forEach((th,i) => th.classList.toggle('sorted', i===sortCol));
+
+  let rows = countryData.filter(r =>
+    r[0].toLowerCase().includes(search) &&
+    (currentFilter==='all' || r[7]===currentFilter)
+  );
+  rows.sort((a,b) => {
+    const va=a[sortCol], vb=b[sortCol];
+    return typeof va==='string' ? sortDir*va.localeCompare(vb) : sortDir*(va-vb);
+  });
+
+  document.getElementById('rowCount').textContent = rows.length + ' records';
+  document.getElementById('countryBody').innerHTML = rows.map(r => `
+    <tr>
+      <td class="country-name">${r[0]}</td>
+      <td>${r[1]}</td>
+      <td>${r[2].toFixed(2)}</td>
+      <td>${r[3].toFixed(2)}</td>
+      <td style="color:var(--green)">${r[4]}</td>
+      <td style="color:var(--amber)">${r[5]}</td>
+      <td style="color:var(--accent)">${r[6]}</td>
+      <td><span class="risk-pill ${riskClass(r[7])}">${r[7]}</span></td>
+    </tr>`).join('');
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+function sortTable(col) {
+  sortDir = sortCol===col ? sortDir*-1 : (col===0?1:-1);
+  sortCol = col;
+  renderTable();
+}
+
+renderTable();
+</script>
+</body>
+</html>
